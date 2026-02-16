@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=393, height=852, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>둥둥그라운드 v1.8 - Rive Motion Integration</title>
+    <title>둥둥그라운드 v1.8.1 - Rive 2X Scale</title>
     <script src="https://unpkg.com/@rive-app/canvas@latest"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -20,7 +20,6 @@
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
         }
 
-        /* 메인 화면 구성: bg_main.png를 배경으로 사용 */
         #main-screen { 
             position: absolute; 
             inset: 0; 
@@ -31,18 +30,18 @@
             align-items: center; 
         }
         
-        /* Rive 캐릭터 캔버스 배치 */
+        /* ★ 리브 모션 크기 2배 확대 및 위치 조정 ★ */
         #rive-canvas {
-            width: 100%;
-            height: 500px;
-            margin-top: 180px;
+            width: 200%;         /* 가로폭 확대 */
+            height: 1000px;      /* 기존 500px에서 1000px로 2배 확대 */
+            margin-top: 100px;   /* 상단 여유 공간 조정 */
             pointer-events: none;
             z-index: 105;
+            transform: scale(1); /* 필요 시 여기서 추가 배율 조절 가능 */
         }
 
         canvas { display: block; width: 100%; height: 100%; outline: none; -webkit-tap-highlight-color: transparent; }
         
-        /* HUD 및 기타 UI 스타일 (기존 유지) */
         #hud { position: absolute; top: 0; left: 0; width: 100%; z-index: 50; display: none; pointer-events: none; }
         .nav-bar img { width: 100%; display: block; }
         .hud-info { width: 100%; padding: 9px 20px 0; box-sizing: border-box; display: flex; justify-content: space-between; align-items: flex-start; }
@@ -101,39 +100,31 @@
 </div>
 
 <script>
-    /* --- 리브(Rive) 애니메이션 엔진 설정 --- */
     let riveInstance = null;
     function initRive() {
-        // 업로드된 dongdongground_0.1.riv 파일 로드 [cite: 1]
         riveInstance = new rive.Rive({
             src: 'dongdongground_0.1.riv', 
             canvas: document.getElementById('rive-canvas'),
             autoplay: true,
-            stateMachines: 'State Machine 1', // 리브 내부의 상태 머신 [cite: 1, 3]
+            stateMachines: 'State Machine 1', 
             onLoad: () => {
                 riveInstance.resizeDrawingSurfaceToCanvas();
             },
         });
     }
 
-    // 초기 로드 시 리브 애니메이션 실행
     window.addEventListener('load', initRive);
 
-    /* --- 게임 시작 시 전환 로직 --- */
     function forceStart() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        // 메인 화면 모션 종료 및 화면 숨김 
         if(riveInstance) riveInstance.cleanup(); 
         document.getElementById('main-screen').style.display = 'none';
         document.getElementById('hud').style.display = 'block';
-        
         state = 'PLAY';
         for(let j=0; j<5; j++) spawnCloud(Math.random() * HEIGHT);
-        loop(); // 인게임 루프 시작 
+        loop(); 
     }
 
-    /* --- 인게임 오디오 엔진 및 물리 시스템 (기존 유지) --- */
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     function playSound(type) {
@@ -181,8 +172,6 @@
     const springK = 0.18, friction = 0.75, GLOBAL_SPEED = 17.7; 
     let landY = HEIGHT + 1000, spawnDeck = [];
 
-    // ... (이후 refillSpawnDeck, spawnCloud, spawnObj, updateLifeUI, addCombo, triggerGoldFever, gameOver, loop, draw 함수 등 기존 스크립트 로직 유지) 
-    
     function refillSpawnDeck() {
         let newItems = ['GOLD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD'];
         for(let i=0; i<90; i++) newItems.push('CRATE');
