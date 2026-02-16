@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=393, height=852, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>둥둥그라운드 v1.8.2 - Exact Fit 393x852</title>
+    <title>둥둥그라운드 v1.8.3 - Combo Fix & Exact Fit</title>
     <script src="https://unpkg.com/@rive-app/canvas@latest"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -20,7 +20,7 @@
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
         }
 
-        /* 메인 화면: 배경 이미지와 리브 캔버스를 동일 영역에 배치 */
+        /* 메인 화면: 배경 이미지와 리브 캔버스 정규격 배치 */
         #main-screen { 
             position: absolute; 
             inset: 0; 
@@ -28,7 +28,6 @@
             z-index: 100; 
         }
         
-        /* 리브 캔버스를 393x852 전체 크기로 강제 고정 */
         #rive-canvas {
             position: absolute;
             top: 0;
@@ -41,7 +40,7 @@
 
         canvas { display: block; width: 100%; height: 100%; outline: none; -webkit-tap-highlight-color: transparent; }
         
-        /* HUD 및 기타 UI (기존 규격 유지) */
+        /* HUD UI */
         #hud { position: absolute; top: 0; left: 0; width: 100%; z-index: 50; display: none; pointer-events: none; }
         .nav-bar img { width: 100%; display: block; }
         .hud-info { width: 100%; padding: 9px 20px 0; box-sizing: border-box; display: flex; justify-content: space-between; align-items: flex-start; }
@@ -49,7 +48,15 @@
         .hud-left img { width: 28px; height: 28px; object-fit: contain; }
         .dist-val-wrap { font-family: "Tomorrow", sans-serif; font-size: 36px; font-weight: 600; color: #000; letter-spacing: -1px; line-height: 1; display: flex; align-items: baseline; }
         .dist-unit { font-family: 'Pretendard', sans-serif; font-size: 20px; font-weight: 700; margin-left: 1px; color: inherit; }
-        
+        #altitude-area.is-danger .dist-val-wrap, #altitude-area.is-danger #dist-val, #altitude-area.is-danger .dist-unit { color: #D4574B !important; }
+        .danger-pulse { animation: extreme-pulse 0.135s infinite alternate ease-in-out; }
+        @keyframes extreme-pulse { from { transform: scale(1.0); } to { transform: scale(1.1); } }
+        .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .ingame-score-bg { background: #fff; height: 38px; width: 86px; padding: 0 10px; border-radius: 30px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; }
+        .ingame-score-bg img { width: 28px; height: 28px; object-fit: contain; }
+        .ingame-score-bg span { font-family: "Tomorrow", sans-serif; font-size: 18px; font-weight: 600; color: #000; }
+        #life-container { display: flex; gap: 2px; padding-right: 4px; }
+        #life-container img { width: 28px; height: 28px; object-fit: contain; }
         #result-screen { position: absolute; inset: 0; background:rgba(0,0,0,0.8); z-index:200; display:none; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center; }
     </style>
 </head>
@@ -92,43 +99,31 @@
 </div>
 
 <script>
-    /* --- 리브(Rive) 초기화 설정 --- */
+    /* --- Rive 엔진 초기화 --- */
     let riveInstance = null;
     function initRive() {
-        // 393x852 사이즈에 리브가 정확히 피팅되도록 레이아웃 설정 
         riveInstance = new rive.Rive({
             src: 'dongdongground_0.1.riv', 
             canvas: document.getElementById('rive-canvas'),
             autoplay: true,
             stateMachines: 'State Machine 1', 
-            layout: new rive.Layout({
-                fit: rive.Fit.Cover, // 배경 사이즈에 맞춰 캔버스를 가득 채움 
-                alignment: rive.Alignment.Center
-            }),
-            onLoad: () => {
-                riveInstance.resizeDrawingSurfaceToCanvas();
-            },
+            layout: new rive.Layout({ fit: rive.Fit.Cover, alignment: rive.Alignment.Center }),
+            onLoad: () => { riveInstance.resizeDrawingSurfaceToCanvas(); },
         });
     }
-
-    // 페이지 로드 시 리브 초기화 실행
     window.addEventListener('load', initRive);
 
-    /* --- 게임 시작 함수 --- */
     function forceStart() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        // 메인 화면 모션 종료 및 화면 숨김 
         if(riveInstance) riveInstance.cleanup(); 
         document.getElementById('main-screen').style.display = 'none';
         document.getElementById('hud').style.display = 'block';
-        
         state = 'PLAY';
         for(let j=0; j<5; j++) spawnCloud(Math.random() * HEIGHT);
-        loop(); // 인게임 루프 시작
+        loop(); 
     }
 
-    /* --- 인게임 시스템 (기존 로직 유지) --- */
+    /* --- 게임 물리 및 로직 --- */
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -200,7 +195,7 @@
         for(let i=0; i<3; i++) { const lifeEl = document.getElementById('life-' + i); if(lifeEl) lifeEl.src = (i >= (3 - lives)) ? 'mini_life.svg' : 'mini_death.svg'; } 
     }
     function addCombo() {
-        combo++; comboTimer = 30; popScale = 1.4; isGoldFever = false; 
+        combo++; comboTimer = 30; popScale = 1.4;
         for(let i=0; i<8; i++) { comboParticles.push({ x: 250 * 2 + 20, y: (150 * 2) + 60, vx: (Math.random() - 0.5) * 15, vy: (Math.random() - 0.5) * 15, life: 30, size: Math.random() * 6 + 4 }); }
     }
     function triggerGoldFever() {
@@ -219,7 +214,16 @@
 
     function loop() {
         if(state === 'END') return;
-        frame++; if(!isGoldFever) { if(comboTimer > 0) comboTimer--; else combo = 0; }
+        frame++; 
+        
+        // ★ 황금 고구마(isGoldFever) 콤보 유지 로직 복구 ★
+        if (isGoldFever) {
+            comboTimer = 30; // 피버 상태일 때 타이머를 최대치로 고정
+        } else {
+            if (comboTimer > 0) comboTimer--; 
+            else combo = 0; 
+        }
+
         if(popScale > 1.0) popScale -= 0.08; if(popScale < 1.0) popScale = 1.0;
         let targetRot = (pDir === 1) ? -27 * Math.PI / 180 : 0;
         rotVel = (rotVel + (targetRot - currentRotation) * springK) * friction;
@@ -242,7 +246,11 @@
             if(state === 'PLAY' && Math.sqrt((pX - o.x)**2 + (pY - o.y)**2) < 115) {
                 if(o.type === 'BAD') { playSound('hit'); lives--; score = Math.max(0, score - 10); combo = 0; comboTimer = 0; isGoldFever = false; updateLifeUI(); hitShakeFrame = 10; currentFace = 'miss'; faceTimer = 78; fx.push({ x: pX + 70, y: pY + 20, img: imgs.damage, life: 60, follow: true, vy: -4.2, isEffect: false }); if(lives <= 0) setTimeout(() => gameOver("작전 실패..."), 500);
                 } else if(o.type === 'GOLD') triggerGoldFever();
-                else { playSound('item'); score += (combo >= 20) ? 2 : 1; addCombo(); fx.push({ x: o.x, y: o.y, img: imgs.effect, life: 60, follow: false, vy: -5, isEffect: true }); }
+                else { 
+                    playSound('item'); score += (combo >= 20) ? 2 : 1; addCombo(); 
+                    if(isGoldFever) isGoldFever = false; // 상자 획득 시 피버 상태 해제
+                    fx.push({ x: o.x, y: o.y, img: imgs.effect, life: 60, follow: false, vy: -5, isEffect: true }); 
+                }
                 objects.splice(i, 1);
             }
         });
