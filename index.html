@@ -29,7 +29,7 @@
         .ingame-score-bg img { width: 28px; height: 28px; object-fit: contain; }
         .ingame-score-bg span { font-family: "Tomorrow", sans-serif; font-size: 18px; font-weight: 600; color: #000; }
 
-        /* 라이프 UI 스타일 유지 */
+        /* 라이프 UI: 간격 2px, 숫자 17px, 컬러 블랙 고정 */
         #life-container { display: flex; align-items: center; gap: 2px; padding-right: 4px; margin-top: -2px; }
         #life-icon { width: 40px; height: 40px; object-fit: contain; }
         #life-text { font-family: "Tomorrow", sans-serif; font-size: 17px; font-weight: 500; color: #000; letter-spacing: 0.5px; }
@@ -59,7 +59,7 @@
                 </div>
                 <div id="life-container">
                     <img id="life-icon" src="life.png">
-                    <span id="life-text">x3</span>
+                    <span id="life-text">x 3</span>
                 </div>
             </div>
         </div>
@@ -76,6 +76,7 @@
 </div>
 
 <script>
+    /* --- Rive 및 키보드 제어 --- */
     let riveInstance = null;
     function initRive() {
         riveInstance = new rive.Rive({
@@ -108,6 +109,7 @@
         loop(); 
     }
 
+    /* --- 게임 물리 및 오디오 --- */
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -176,11 +178,11 @@
         else objects.push({ x, y: spawnY, type: 'CRATE', img: imgs.crate });
     }
 
-    /* 업데이트 로직: 띄어쓰기 없고 컬러 고정 */
+    /* 라이프 UI 업데이트: 빨간색 로직 없이 x 3 형식 유지 */
     function updateLifeUI() { 
         const lifeTextEl = document.getElementById('life-text');
         if(lifeTextEl) {
-            lifeTextEl.innerText = 'x' + lives;
+            lifeTextEl.innerText = 'x ' + lives;
         }
     }
 
@@ -242,6 +244,7 @@
     function draw() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         ctx.fillStyle = '#BBE5FF'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        
         clouds.forEach(c => { if(c.img.complete) { ctx.save(); ctx.globalAlpha = c.alpha; ctx.drawImage(c.img, c.x - (c.img.width*c.scale*2), c.y, c.img.width*c.scale*4, c.img.height*c.scale*4); ctx.restore(); } });
         ctx.save();
         if(dist < 150) {
@@ -250,19 +253,31 @@
             if(imgs.target.complete) { const tW = imgs.target.width || 240, tH = imgs.target.height || 96; ctx.drawImage(imgs.target, pX - tW, landY + 180, tW * 2, tH * 2); }
         }
         ctx.restore();
+
         if(state === 'PLAY' && windAlphaBase > 0) {
             let imgNormal, imgMove; if(pDir === 1) { imgNormal = imgs.windR; imgMove = imgs.windR_move; } else { imgNormal = imgs.windL; imgMove = imgs.windL_move; }
             if(imgNormal.complete && imgMove.complete) { ctx.save(); const s = 205; const baseX = WIDTH / 2 - s, baseY = 110 * 2; ctx.globalAlpha = windAlphaBase; ctx.drawImage(imgNormal, baseX, baseY, s * 2, s * 2); ctx.globalAlpha = windAlphaBase * (0.4 + Math.sin(frame * 0.25) * 0.4); ctx.drawImage(imgMove, baseX, baseY, s * 2, s * 2); ctx.restore(); }
         }
+        
         objects.forEach(o => { 
             if(o.img.complete) { 
                 ctx.save(); 
-                if(o.type === 'CRATE') { ctx.translate(o.x, o.y - (o.img.height/2)); ctx.rotate(Math.sin(frame * 0.13 + o.y * 0.005) * 0.2); ctx.drawImage(o.img, -o.img.width/2, 0, o.img.width, o.img.height); } 
-                else if(o.type === 'BAD') { ctx.translate(o.x, o.y); if(o.flipped) ctx.scale(-1, 1); ctx.drawImage(o.img, -o.img.width/2, -o.img.height/2, o.img.width, o.img.height); } 
-                else { ctx.translate(o.x, o.y); ctx.drawImage(o.img, -o.img.width, -o.img.height, o.img.width * 2, o.img.height * 2); }
+                if(o.type === 'CRATE') { 
+                    ctx.translate(o.x, o.y - (o.img.height/2)); 
+                    ctx.rotate(Math.sin(frame * 0.13 + o.y * 0.005) * 0.2); 
+                    ctx.drawImage(o.img, -o.img.width/2, 0, o.img.width, o.img.height); 
+                } else if(o.type === 'BAD') {
+                    ctx.translate(o.x, o.y); 
+                    if(o.flipped) ctx.scale(-1, 1); 
+                    ctx.drawImage(o.img, -o.img.width/2, -o.img.height/2, o.img.width, o.img.height); 
+                } else {
+                    ctx.translate(o.x, o.y);
+                    ctx.drawImage(o.img, -o.img.width, -o.img.height, o.img.width * 2, o.img.height * 2);
+                }
                 ctx.restore(); 
             } 
         });
+
         ctx.save(); let sX = (hitShakeFrame > 0) ? (Math.random() - 0.5) * 25 : 0; ctx.translate(pX + sX, pY + Math.sin(frame*0.08)*7.5); ctx.rotate(currentRotation); 
         let pImg = (faceTimer > 0) ? (currentFace === 'happy' ? imgs.face_happy : imgs.face_miss) : imgs.player;
         if(faceTimer > 0) faceTimer--; if(pImg.complete) ctx.drawImage(pImg, -pImg.width, -pImg.height, pImg.width * 2, pImg.height * 2); ctx.restore();
