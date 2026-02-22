@@ -14,22 +14,34 @@
         #main-screen { position: absolute; inset: 0; background: url('bg_main.png') no-repeat center center / cover; z-index: 100; }
         #rive-canvas { position: absolute; top: 0; left: 0; width: 393px; height: 852px; pointer-events: none; z-index: 105; }
         canvas { display: block; width: 100%; height: 100%; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        /* HUD 레이아웃 */
         #hud { position: absolute; top: 0; left: 0; width: 100%; z-index: 50; display: none; pointer-events: none; }
         .nav-bar img { width: 100%; display: block; }
         .hud-info { width: 100%; padding: 9px 20px 0; box-sizing: border-box; display: flex; justify-content: space-between; align-items: flex-start; }
+        
+        /* HUD 왼쪽: 거리 */
         .hud-left { display: flex; align-items: center; gap: 1px; }
         .hud-left img { width: 28px; height: 28px; object-fit: contain; }
         .dist-val-wrap { font-family: "Tomorrow", sans-serif; font-size: 36px; font-weight: 600; color: #000; letter-spacing: -1px; line-height: 1; display: flex; align-items: baseline; }
         .dist-unit { font-family: 'Pretendard', sans-serif; font-size: 20px; font-weight: 700; margin-left: 1px; color: inherit; }
+        
+        /* 위험 경고 연출 */
         #altitude-area.is-danger .dist-val-wrap, #altitude-area.is-danger #dist-val, #altitude-area.is-danger .dist-unit { color: #D4574B !important; }
         .danger-pulse { animation: extreme-pulse 0.135s infinite alternate ease-in-out; }
         @keyframes extreme-pulse { from { transform: scale(1.0); } to { transform: scale(1.1); } }
+        
+        /* HUD 오른쪽: 점수 및 라이프 */
         .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-        .ingame-score-bg { background: #fff; height: 38px; width: 86px; padding: 0 10px; border-radius: 30px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; }
-        .ingame-score-bg img { width: 28px; height: 28px; object-fit: contain; }
+        .ingame-score-bg { background: #fff; height: 38px; min-width: 86px; padding: 0 12px; border-radius: 30px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .ingame-score-bg img { width: 20px; height: 20px; object-fit: contain; margin-right: 6px; }
         .ingame-score-bg span { font-family: "Tomorrow", sans-serif; font-size: 18px; font-weight: 600; color: #000; }
-        #life-container { display: flex; gap: 2px; padding-right: 4px; }
-        #life-container img { width: 28px; height: 28px; object-fit: contain; }
+        
+        /* 신규 라이프 UI 시안 반영 */
+        #life-container { display: flex; align-items: center; gap: 4px; padding-right: 4px; }
+        #life-icon { width: 28px; height: 28px; object-fit: contain; }
+        #life-text { font-family: "Tomorrow", sans-serif; font-size: 20px; font-weight: 700; color: #000; text-shadow: 1px 1px 0px #fff; }
+
         #result-screen { position: absolute; inset: 0; background:rgba(0,0,0,0.8); z-index:200; display:none; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center; }
     </style>
 </head>
@@ -54,9 +66,8 @@
                     <span id="score-val">0</span>
                 </div>
                 <div id="life-container">
-                    <img id="life-0" src="mini_life.svg">
-                    <img id="life-1" src="mini_life.svg">
-                    <img id="life-2" src="mini_life.svg">
+                    <img id="life-icon" src="life.png">
+                    <span id="life-text">x3</span>
                 </div>
             </div>
         </div>
@@ -95,7 +106,7 @@
                 pDir *= -1;
                 windTimer = 0; windAlphaBase = 0;
             } else if (state === 'END') {
-                location.reload(); // 결과창에서 스페이스바 누르면 재시작
+                location.reload();
             }
         }
     });
@@ -111,7 +122,7 @@
         loop(); 
     }
 
-    /* --- 게임 물리 및 오디오 --- */
+    /* --- 오디오 시스템 --- */
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -140,12 +151,12 @@
         }
     }
 
+    /* --- 게임 설정 및 변수 --- */
     const canvas = document.getElementById('gameCanvas');
     const WIDTH = 393 * 2, HEIGHT = 852 * 2; 
     canvas.width = WIDTH; canvas.height = HEIGHT;
     const ctx = canvas.getContext('2d');
     const imgs = {};
-    // 보급상자와 헬기를 PNG로 변경 
     const imgList = ['player', 'dong_chun.svg', 'face_happy', 'dong_chun_happy.svg', 'face_miss', 'dong_chun_miss.svg', 'crate', 'create_m.png', 'gold', 'gold.svg', 'heli', 'heli.png', 'cloud1', 'cloud_1.svg', 'cloud2', 'cloud_2.svg', 'cloud3', 'cloud_3.svg', 'land', '03_ingame_land.png', 'effect', 'effect_pickup.png', 'damage', 'damege.svg', 'mountain', 'surface_mountain.png', 'grass', 'surface_grass.png', 'target', 'surface_target.svg', 'windL', 'wind_L.svg', 'windR', 'wind_R.svg', 'windL_move', 'wind_L_move.svg', 'windR_move', 'wind_R_move.svg'];
     imgList.forEach((val, i) => { if(i % 2 === 0) { imgs[val] = new Image(); imgs[val].src = imgList[i+1]; } });
 
@@ -159,17 +170,20 @@
     const springK = 0.18, friction = 0.75, GLOBAL_SPEED = 17.7; 
     let landY = HEIGHT + 1000, spawnDeck = [];
 
+    /* --- 게임 로직 함수 --- */
     function refillSpawnDeck() {
         let newItems = ['GOLD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD', 'BAD'];
         for(let i=0; i<90; i++) newItems.push('CRATE');
         for (let i = newItems.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [newItems[i], newItems[j]] = [newItems[j], newItems[i]]; }
         spawnDeck = [...newItems];
     }
+
     function spawnCloud(y) {
         const depth = Math.floor(Math.random() * 2);
         const baseScale = depth === 0 ? 0.39 : 0.26;
         clouds.push({ x: Math.random() * WIDTH, y: y || HEIGHT + 150, img: imgs['cloud'+(Math.floor(Math.random()*3)+1)], scale: baseScale * 1.3, alpha: depth === 0 ? 0.8 : 0.5, speed: depth === 0 ? 4.0 : 2.0, depth });
     }
+
     function spawnObj() {
         if(stopSpawning) return;
         if(spawnDeck.length === 0) refillSpawnDeck();
@@ -180,20 +194,31 @@
         else if(type === 'GOLD') objects.push({ x, y: spawnY, type: 'GOLD', img: imgs.gold });
         else objects.push({ x, y: spawnY, type: 'CRATE', img: imgs.crate });
     }
+
+    /* 시안 반영된 라이프 UI 업데이트 */
     function updateLifeUI() { 
-        for(let i=0; i<3; i++) { const lifeEl = document.getElementById('life-' + i); if(lifeEl) lifeEl.src = (i >= (3 - lives)) ? 'mini_life.svg' : 'mini_death.svg'; } 
+        const lifeTextEl = document.getElementById('life-text');
+        if(lifeTextEl) {
+            lifeTextEl.innerText = 'x' + lives;
+            if(lives <= 1) lifeTextEl.style.color = '#D4574B';
+            else lifeTextEl.style.color = '#000';
+        }
     }
+
     function addCombo() {
         combo++; comboTimer = 30; popScale = 1.4;
         for(let i=0; i<8; i++) { comboParticles.push({ x: 250 * 2 + 20, y: (150 * 2) + 60, vx: (Math.random() - 0.5) * 15, vy: (Math.random() - 0.5) * 15, life: 30, size: Math.random() * 6 + 4 }); }
     }
+
     function triggerGoldFever() {
         playSound('gold'); currentFace = 'happy'; faceTimer = 78; isGoldFever = true; 
         objects.forEach(o => { if(o.type === 'CRATE') { score += (combo >= 20) ? 2 : 1; addCombo(); fx.push({ x: o.x, y: o.y, img: imgs.effect, life: 60, follow: false, vy: -5, isEffect: true }); } });
         objects = [];
     }
+
     function gameOver(title) {
-        state = 'END'; document.getElementById('result-title').innerText = title;
+        state = 'END'; 
+        document.getElementById('result-title').innerText = title;
         document.getElementById('final-score').innerText = score;
         document.getElementById('result-screen').style.display = 'flex';
     }
@@ -201,6 +226,7 @@
     canvas.addEventListener('mousedown', () => { if(state === 'PLAY') { pDir *= -1; windTimer = 0; windAlphaBase = 0; } });
     canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if(state === 'PLAY') { pDir *= -1; windTimer = 0; windAlphaBase = 0; } }, {passive: false});
 
+    /* --- 메인 루프 --- */
     function loop() {
         if(state === 'END') return;
         frame++; 
@@ -211,49 +237,82 @@
         let targetRot = (pDir === 1) ? -27 * Math.PI / 180 : 0;
         rotVel = (rotVel + (targetRot - currentRotation) * springK) * friction;
         currentRotation += rotVel;
+
         if(state === 'PLAY') {
             dist -= 1.29; mountainX -= pDir * 2.07; grassX -= pDir * 11.5;
             if(frame % 7 === 0) spawnObj(); if(frame % 80 === 0) spawnCloud();
             windTimer++; if(windTimer > 18) { if(windAlphaBase < 1) windAlphaBase += 0.1; }
         }
+
         comboParticles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life--; if(p.life <= 0) comboParticles.splice(i, 1); });
+        
         const currentDist = Math.max(0, Math.floor(dist));
         document.getElementById('dist-val').innerText = currentDist;
         const altitudeArea = document.getElementById('altitude-area');
-        if(currentDist <= 300) { altitudeArea.classList.add('is-danger'); if(currentDist > 0 && state === 'PLAY') altitudeArea.classList.add('danger-pulse'); else altitudeArea.classList.remove('danger-pulse');
+        if(currentDist <= 300) { 
+            altitudeArea.classList.add('is-danger'); 
+            if(currentDist > 0 && state === 'PLAY') altitudeArea.classList.add('danger-pulse'); 
+            else altitudeArea.classList.remove('danger-pulse');
         } else altitudeArea.classList.remove('is-danger', 'danger-pulse');
+
         document.getElementById('score-val').innerText = score;
+
         const targetArrivalY = pY + 140 - 248;
-        if(dist < 150 && state === 'PLAY') { if(landY > targetArrivalY) landY -= GLOBAL_SPEED; else { landY = targetArrivalY; if(dist <= 5) { dist = 0; state = 'LANDED'; setTimeout(() => gameOver("작전 완료!"), 500); } } stopSpawning = true; }
-        objects.forEach((o, i) => { o.y -= GLOBAL_SPEED; o.x -= pDir * 11.5; if(o.y < -200) { objects.splice(i, 1); return; } 
+        if(dist < 150 && state === 'PLAY') { 
+            if(landY > targetArrivalY) landY -= GLOBAL_SPEED; 
+            else { 
+                landY = targetArrivalY; 
+                if(dist <= 5) { dist = 0; state = 'LANDED'; setTimeout(() => gameOver("작전 완료!"), 500); } 
+            } 
+            stopSpawning = true; 
+        }
+
+        objects.forEach((o, i) => { 
+            o.y -= GLOBAL_SPEED; o.x -= pDir * 11.5; 
+            if(o.y < -200) { objects.splice(i, 1); return; } 
             if(state === 'PLAY' && Math.sqrt((pX - o.x)**2 + (pY - o.y)**2) < 115) {
-                if(o.type === 'BAD') { playSound('hit'); lives--; score = Math.max(0, score - 10); combo = 0; comboTimer = 0; isGoldFever = false; updateLifeUI(); hitShakeFrame = 10; currentFace = 'miss'; faceTimer = 78; fx.push({ x: pX + 70, y: pY + 20, img: imgs.damage, life: 60, follow: true, vy: -4.2, isEffect: false }); if(lives <= 0) setTimeout(() => gameOver("작전 실패..."), 500);
+                if(o.type === 'BAD') { 
+                    playSound('hit'); lives--; score = Math.max(0, score - 10); 
+                    combo = 0; comboTimer = 0; isGoldFever = false; 
+                    updateLifeUI(); hitShakeFrame = 10; currentFace = 'miss'; faceTimer = 78; 
+                    fx.push({ x: pX + 70, y: pY + 20, img: imgs.damage, life: 60, follow: true, vy: -4.2, isEffect: false }); 
+                    if(lives <= 0) setTimeout(() => gameOver("작전 실패..."), 500);
                 } else if(o.type === 'GOLD') triggerGoldFever();
-                else { playSound('item'); score += (combo >= 20) ? 2 : 1; addCombo(); if(isGoldFever) isGoldFever = false; fx.push({ x: o.x, y: o.y, img: imgs.effect, life: 60, follow: false, vy: -5, isEffect: true }); }
+                else { 
+                    playSound('item'); score += (combo >= 20) ? 2 : 1; 
+                    addCombo(); if(isGoldFever) isGoldFever = false; 
+                    fx.push({ x: o.x, y: o.y, img: imgs.effect, life: 60, follow: false, vy: -5, isEffect: true }); 
+                }
                 objects.splice(i, 1);
             }
         });
+
         clouds.forEach(c => { c.y -= c.speed; c.x -= pDir * c.speed * 0.3; });
         fx.forEach((f, i) => { f.life--; if(f.life <= 0) { fx.splice(i, 1); return; } if(!f.follow) { f.x -= pDir * 11.5; f.y -= GLOBAL_SPEED; } f.y += f.vy || 0; });
-        if(hitShakeFrame > 0) hitShakeFrame--; draw(); requestAnimationFrame(loop);
+        if(hitShakeFrame > 0) hitShakeFrame--; 
+        draw(); 
+        requestAnimationFrame(loop);
     }
 
+    /* --- 그리기 함수 --- */
     function draw() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         ctx.fillStyle = '#B7E6F8'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        
         clouds.forEach(c => { if(c.img.complete) { ctx.save(); ctx.globalAlpha = c.alpha; ctx.drawImage(c.img, c.x - (c.img.width*c.scale*2), c.y, c.img.width*c.scale*4, c.img.height*c.scale*4); ctx.restore(); } });
+        
         ctx.save();
         if(dist < 150) {
             if(imgs.mountain.complete) { const mW = imgs.mountain.width * 0.82, mH = imgs.mountain.height * 0.82; for(let x = -3; x <= 3; x++) ctx.drawImage(imgs.mountain, ((mountainX * 1.0) % mW) + (x * mW), landY - mH, mW, mH); }
             if(imgs.grass.complete) { ctx.fillStyle = '#71C8AD'; ctx.fillRect(0, landY, WIDTH, HEIGHT); for(let x = -2; x <= 2; x++) ctx.drawImage(imgs.grass, ((grassX * 1.0) % WIDTH) + (x * WIDTH), landY, WIDTH, imgs.grass.height); }
             if(imgs.target.complete) { const tW = imgs.target.width || 240, tH = imgs.target.height || 96; ctx.drawImage(imgs.target, pX - tW, landY + 180, tW * 2, tH * 2); }
         }
+
         if(state === 'PLAY' && windAlphaBase > 0) {
             let imgNormal, imgMove; if(pDir === 1) { imgNormal = imgs.windR; imgMove = imgs.windR_move; } else { imgNormal = imgs.windL; imgMove = imgs.windL_move; }
             if(imgNormal.complete && imgMove.complete) { ctx.save(); const s = 205; const baseX = WIDTH / 2 - s, baseY = 110 * 2; ctx.globalAlpha = windAlphaBase; ctx.drawImage(imgNormal, baseX, baseY, s * 2, s * 2); ctx.globalAlpha = windAlphaBase * (0.4 + Math.sin(frame * 0.25) * 0.4); ctx.drawImage(imgMove, baseX, baseY, s * 2, s * 2); ctx.restore(); }
         }
         
-        /* ★ PNG 스케일 최적화 (기존 사이즈 절반으로 렌더링하여 2배 고해상도 효과) ★ */
         objects.forEach(o => { 
             if(o.img.complete) { 
                 ctx.save(); 
@@ -273,12 +332,22 @@
             } 
         });
 
-        ctx.save(); let sX = (hitShakeFrame > 0) ? (Math.random() - 0.5) * 25 : 0; ctx.translate(pX + sX, pY + Math.sin(frame*0.08)*7.5); ctx.rotate(currentRotation); 
+        /* 플레이어 렌더링 */
+        ctx.save(); 
+        let sX = (hitShakeFrame > 0) ? (Math.random() - 0.5) * 25 : 0; 
+        ctx.translate(pX + sX, pY + Math.sin(frame*0.08)*7.5); 
+        ctx.rotate(currentRotation); 
+        
         let pImg = (faceTimer > 0) ? (currentFace === 'happy' ? imgs.face_happy : imgs.face_miss) : imgs.player;
-        if(faceTimer > 0) faceTimer--; if(pImg.complete) ctx.drawImage(pImg, -pImg.width, -pImg.height, pImg.width * 2, pImg.height * 2); ctx.restore();
+        if(faceTimer > 0) faceTimer--; 
+        if(pImg.complete) ctx.drawImage(pImg, -pImg.width, -pImg.height, pImg.width * 2, pImg.height * 2); 
+        ctx.restore();
+
+        /* FX 및 파티클 */
         fx.forEach(f => { if(f.img.complete) { ctx.save(); ctx.globalAlpha = Math.min(1, f.life / 20); if(f.isEffect) { ctx.drawImage(f.img, f.x - f.img.width / 2, f.y - f.img.height / 2, f.img.width, f.img.height); } else { ctx.drawImage(f.img, f.x - f.img.width, f.y - f.img.height, f.img.width * 2, f.img.height * 2); } ctx.restore(); } });
         comboParticles.forEach(p => { ctx.fillStyle = '#FFEF6B'; ctx.globalAlpha = p.life / 30; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); });
-        ctx.restore(); 
+        
+        /* 콤보 UI */
         if(combo > 1 || isGoldFever) {
             ctx.save(); const comboX = 250 * 2, comboY = (150 * 2) + 32; ctx.translate(comboX, comboY); ctx.scale(popScale, popScale); ctx.translate(-comboX, -comboY); ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.lineJoin = 'round'; ctx.lineWidth = 10; ctx.filter = 'blur(0.5px)'; ctx.strokeStyle = '#FFFFFF'; ctx.fillStyle = (combo >= 20) ? '#A45AE4' : '#5094F9'; ctx.font = '700 80px "Tomorrow"'; ctx.strokeText(combo, comboX, comboY); ctx.fillText(combo, comboX, comboY); ctx.font = '700 32px "Pretendard"'; ctx.strokeText((combo >= 20) ? 'COMBO x2' : 'COMBO', comboX, comboY + 80); ctx.fillText((combo >= 20) ? 'COMBO x2' : 'COMBO', comboX, comboY + 80); ctx.filter = 'none'; ctx.restore();
         }
